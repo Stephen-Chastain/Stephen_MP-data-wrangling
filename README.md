@@ -1,2 +1,2 @@
 # Steve_MP-data-wrangling
-A folder with scripts developed by Steve to process microplastic data
+This repo contains a scripts for processing microplastic data developed by Steve
