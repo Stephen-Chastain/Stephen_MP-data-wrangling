@@ -1,0 +1,197 @@
+library ("tidyverse")
+
+
+#Note: these scripts were made from preliminary count data before FTIR analysis, so counts aren't final.
+#upload data table(s). Change the file path
+ArcticLoops <- read.csv("C:/Users/Stephen/Desktop/Vancouver Aquarium/Lab Data/DFO Arctic Ocean Water Samples/R/ArcticLoops.csv")
+ArcticPBlanks <- read.csv("C:/Users/Stephen/Desktop/Vancouver Aquarium/Lab Data/DFO Arctic Ocean Water Samples/R/ArcticPBlanks.csv")
+
+#METHOD 1- no blank correction
+m1.samples.counts <- ArcticLoops %>% 
+  group_by(cruise,
+           station,
+           sampletype,
+           volume,
+           latitude,
+           longitude,
+           extractlocation,
+           extractdate)%>%
+  summarise(n()) 
+
+  m1.samples.counts[-c(1),] #remove the stupid blank row
+#1 liter bulk samples first...
+m1.samples.counts[-c(1),] #remove the stupid blank row
+m1.loopbulk <- filter(m1.samples.counts, sampletype == "loopbulk")
+m1.loopbulkblank <- filter(m1.samples.counts, sampletype == "loopbulkblank")
+
+#mean +/- standard deviation of particles per liter
+#Bulks are easy- answer is already in particles per liter
+m1.bulk.n.mean <- mean(m1.loopbulk$`n()`)
+m1.bulk.n.stdev <- sd(m1.loopbulk$`n()`)
+
+m1.bulkblank.n.mean <- mean(m1.loopbulkblank$`n()`)
+m1.bulkblank.n.stdev <- sd(m1.loopbulkblank$`n()`)
+
+#sieved samples need to divide by volume to get particles per liter. These 2 lines will give you counts per sample...
+m1.loopsieved <- filter(m1.samples.counts, sampletype == "loopsieved")
+m1.loopsievedblank <- filter(m1.samples.counts, sampletype == "loopsievedblank")
+#...and these two lines will give you each sample's count divided by its volume in liters.
+m1.sievedperliter <- mutate(m1.loopsieved, perliter=`n()` / volume)
+m1.sievedblankperliter <- mutate(m1.loopsievedblank, perliter=`n()` / volume)
+#get rid of the old sieved data frames if you want- all this data is now duplicated in the mutated one
+rm(m1.loopsieved)
+rm(m1.loopsievedblank)
+
+#NOTE TO STEPHEN- replace NA's in the data frame when you can find out the unknown volume values...
+#this removes: loop126
+m1.sieved.n.mean <- mean(m1.sievedperliter$perliter, na.rm = TRUE)
+m1.sieved.n.stdev <- sd(m1.sievedperliter$perliter, na.rm = TRUE)
+
+m1.sievedblank.n.mean <- mean(m1.sievedblankperliter$perliter, na.rm = TRUE)
+m1.sievedblank.n.stdev <- sd(m1.sievedblankperliter$perliter, na.rm = TRUE)
+
+
+
+#METHOD 2- brute force blank correction
+#create this data table of 'global' particle data (ie. all data points that apply PER SAMPLE rather than the nested, PER-PARTICLE data table of the .csv)
+#this is identical to the starting point for method 1 but is named m2 to help you keep them straight
+
+m2.samples.counts <- ArcticLoops %>% 
+  group_by(cruise,
+           station,
+           sampletype,
+           volume,
+           latitude,
+           longitude,
+           extractlocation,
+           extractdate)%>%
+  summarise(n()) 
+
+m2.loopsieved <- filter(m2.samples.counts, sampletype == "loopsieved")
+m2.loopsievedblank <- filter(m2.samples.counts, sampletype == "loopsievedblank")
+m2.loopbulk <- filter(m2.samples.counts, sampletype == "loopbulk")
+m2.loopbulkblank <- filter(m2.samples.counts, sampletype == "loopbulkblank")
+
+#now get the data from your procedural blanks
+m2.pblank.counts <- ArcticPBlanks %>%
+  group_by(cruise,
+           station,
+           sampletype,
+           volume,
+           extractlocation,
+           extractdate) %>%
+summarise(n()) 
+
+
+m2.pblank.bulks <- filter(m2.pblank.counts, sampletype == "pblankbulk")
+m2.pblank.sieved <- filter(m2.pblank.counts, sampletype == "pblanksieved")
+
+#These mutate functions to creata a "particles per liter" are the same as in method 1, I just changed the name for organization purposes.
+m2.sievedperliter <- mutate(m2.loopsieved, perliter=`n()` / volume)
+m2.sievedblankperliter <- mutate(m2.loopsievedblank, perliter=`n()` / volume)
+
+m2.pblank.sievedperliter <- mutate(m2.pblank.sieved, perliter=`n()` / volume)
+
+#Create values of mean and standard deviation for each type of sample and lab blank. Again, the same as method 1. removing NA's; replace with values when known....
+m2.loopbulk.n.mean <- mean(m2.loopbulk$`n()`, na.rm = TRUE)
+m2.loopbulk.n.stdev <- sd(m2.loopbulk$`n()`, na.rm = TRUE)
+
+m2.loopbulkblank.n.mean <- mean(m2.loopbulk$`n()`, na.rm = TRUE)
+m2.loopbulkblank.n.stdev <- sd(m2.loopbulk$`n()`, na.rm = TRUE)
+
+m2.sieved.n.mean <- mean(m2.sievedperliter$perliter, na.rm = TRUE)
+m2.sieved.n.stdev <- sd(m2.sievedperliter$perliter, na.rm = TRUE)
+
+m2.sievedblank.n.mean <- mean(m2.sievedblankperliter$perliter, na.rm = TRUE)
+m2.sievedblank.n.stdev <- sd(m2.sievedblankperliter$perliter, na.rm = TRUE)
+
+#...and do the same operations for the pblanks too (remember no conversion to per-liter is needed for bulks)
+m2.pblank.bulks.n.mean <- mean(m2.pblank.bulks$`n()`, na.rm = TRUE)
+m2.pblank.bulks.n.stdev <- sd(m2.pblank.bulks$`n()`, na.rm = TRUE)
+
+m2.pblank.sieved.n.mean <- mean(m2.pblank.sievedperliter$perliter, na.rm = TRUE)
+m2.pblank.sieved.n.stdev <- sd(m2.pblank.sievedperliter$perliter, na.rm = TRUE)
+
+#subtract average/sd of PBlanks from average/sd of samples using uncertainty propagation (see online guide/calculator)
+
+m2.corrected.bulkperliter <- sqrt(((m2.loopbulk.n.mean*m2.loopbulk.n.stdev)^2)-((m2.pblank.bulks.n.mean*m2.pblank.bulks.n.stdev)^2))
+m2.corrected.bulkblankperliter <- sqrt(((m2.loopbulkblank.n.mean*m2.loopbulkblank.n.stdev)^2)-((m2.pblank.bulks.n.mean*m2.pblank.bulks.n.stdev)^2))
+#NOTE this returns a NaN; because square root of a negative
+
+m2.corrected.sievedperliter <- sqrt(((m2.sieved.n.mean*m2.sieved.n.stdev)^2)-((m2.pblank.sieved.n.mean*m2.pblank.sieved.n.stdev)^2))
+m2.corrected.sievedblankperliter <- sqrt(((m2.sievedblank.n.mean*m2.sievedblank.n.stdev)^2)-((m2.pblank.sieved.n.mean*m2.pblank.sieved.n.stdev)^2))
+
+
+# METHOD 3- for microscopy-informed...
+#To-Do: Come up with strategies to identify common contaminants across multiple samples, across whole cruises, or across 
+#
+#Remove flagged contaminants
+
+all.particles.no.contam <- filter(ArcticLoops, contamflag == "")
+
+
+m3.samples.counts <- all.particles.no.contam %>% #table of all non-contaminant samples, and n of number of particles; 1 column of station names (factors), 1 column of count.
+  group_by(station,
+           volume,
+           latitude,
+           longitude,
+           collectdate,
+           extractlocation,
+           sampletype)%>%
+  summarise(n())
+
+m3.loopbulk <- filter(m3.samples.counts, sampletype=="loopbulk")
+m3.loopbulkblank <- filter(m3.samples.counts, sampletype=="loopbulkblank")
+
+m3.loopsieved <- filter(m3.samples.counts, sampletype=="loopsieved")
+m3.loopsievedblank <- filter(m3.samples.counts, sampletype=="loopsievedblank")
+
+m3.sieved.perliter <- mutate(m3.loopsieved, perliter=`n()` / volume)
+m3.sievedblank.perliter <- mutate(m3.loopsievedblank, perliter=`n()` / volume)
+
+
+#Let's take a look at the Procedural Blanks the same way
+pblank.counts.no.contam <- filter(ArcticPBlanks, contamflag == "")
+
+m3.pblank.counts <- pblank.counts.no.contam %>%
+  group_by(station,
+           volume,
+           latitude,
+           longitude,
+           collectdate,
+           extractdate,
+           extractlocation,
+           sampletype) %>%
+summarise(n())
+
+#note- only 5 Pblanks out of 8 had particles in them after removing type A,B,C, and D contamination :)
+
+#separate them out by type...
+m3.pblank.bulks <- filter(m3.pblank.counts, sampletype == "pblankbulk")
+m3.pblank.sieved <- filter(m3.pblank.counts, sampletype == "pblanksieved")
+
+#and convert sieved samples and pblank to per-liter again...
+m3.sievedperliter <- mutate(m3.loopsieved, perliter=`n()` / volume)
+m3.sievedblankperliter <- mutate(m3.loopsievedblank, perliter=`n()` / volume)
+
+m3.pblank.sievedperliter <- mutate(m3.pblank.sieved, perliter=`n()` / volume)
+
+
+#now calculate means and SD's again
+m3.loopbulk.n.mean <- mean(m3.loopbulk$`n()`, na.rm = TRUE)
+m3.loopbulk.n.stdev <- sd(m3.loopbulk$`n()`, na.rm = TRUE)
+
+m3.loopbulkblank.n.mean <- mean(m3.loopbulkblank$`n()`, na.rm = TRUE)
+m3.loopbulkblank.n.stdev <- sd(m3.loopbulkblank$`n()`, na.rm = TRUE)
+
+m3.sieved.n.mean <- mean(m3.sievedperliter$perliter, na.rm = TRUE)
+m3.sieved.n.stdev <- sd(m3.sievedperliter$perliter, na.rm = TRUE)
+
+m3.sievedblank.n.mean <- mean(m3.sievedblankperliter$perliter, na.rm = TRUE)
+m3.sievedblank.n.stdev <- sd(m3.sievedblankperliter$perliter, na.rm = TRUE)
+
+m3.pblank.bulks.n.mean <- mean(m3.pblank.bulks$`n()`, na.rm = TRUE)
+m3.pblank.bulks.n.stdev <- sd(m3.pblank.bulks$`n()`, na.rm = TRUE)
+
+m3.pblank.sieved.n.mean <- mean(m3.pblank.sievedperliter$perliter, na.rm = TRUE)
+m3.pblank.sieved.n.stdev <- sd(m3.pblank.sievedperliter$perliter, na.rm = TRUE)
